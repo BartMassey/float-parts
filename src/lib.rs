@@ -70,22 +70,34 @@ impl ToFloatParts for f32 {
     const EXP_MIN: i16 = -127 + 23;
     type SigBits = u32;
     type Exp = i16;
-    
+
     fn to_float_parts(self) -> (Self::SigBits, Self::Exp, i8) {
+        type S = u32;
+        type E = i16;
+        macro_rules! mask {
+            ($b: expr) => {
+                ((1 << $b) - 1)
+            };
+        }
+
+        let ws = 8 * std::mem::size_of::<S>();
+        let ns = Self::NUM_SIG_BITS;
+        let ne = Self::NUM_EXP_BITS;
+
         let bits = self.to_bits();
 
-        let sign = 1 - ((bits >> 30) & 2) as i8;
-        let mut exp = ((bits >> 23) & 0xff) as i16;
-        let mut sigbits = bits & ((1 << 23) - 1);
+        let sign = 1 - ((bits >> (ws - 2)) & 2) as i8;
+        let exp = (bits >> (ns - 1)) & mask!(ne);
+        let mut sigbits = bits & mask!(ns - 1);
 
-        if exp == 255 {
+        if exp == mask!(ne) {
             return (sigbits, Self::EXP_INF_NAN, sign);
         }
         let is_denorm = exp == 0;
-        exp += -127 + 23;
+        let exp = exp as E - mask!(ne - 1) as E + ns as E - 1;
 
-        sigbits <<= is_denorm as u32;
-        sigbits |= (!is_denorm as u32) << 24;
+        sigbits <<= is_denorm as S;
+        sigbits |= (!is_denorm as S) << ns;
 
         (sigbits, exp, sign)
     }
