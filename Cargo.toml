@@ -1,0 +1,4 @@
+[package]
+name = "to_float_parts"
+version = "0.1.0"
+edition = "2021"
